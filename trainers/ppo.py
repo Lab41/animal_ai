@@ -5,10 +5,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 import numpy as np
+import time
+import argparse
+import os
 
 from animalai.envs import UnityEnvironment
 from animalai.envs.arena_config import ArenaConfig
 
+
+parser = argparse.ArgumentParser(description="Train ppo agent for AnimalAI.")
+parser.add_argument('--config', type=str, default='configs/1-Food.yaml', help='Environment config file')
+parser.add_argument('--load_model', type=str, default='saved_models/ppo.pth', help='Saved model to load')
+parser.add_argument('--inference', default=False, action='store_true', help='Run in inference mode')
+
+args = parser.parse_args()
 
 # my params
 env_path = '../env/AnimalAI'
@@ -16,20 +26,23 @@ brain_name='Learner'
 train_mode=True
 num_actions = 9
 color_channels = 3
-env_field = 'configs/1-Food.yaml'
-n_episodes = 2000
+env_field = args.config
+n_episodes = 20000
 #max_t = 100
 actions_array = np.array([[0,0],[0,1],[0,2],[1,0], [1,1],[1,2], [2,0],[2,1],[2,2]])
-n_arenas = 4
+n_arenas = 3
+print_interval = 1
+save_interval = 10
+save_path = 'saved_models/'
 
-cuda = torch.device('cuda')
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 #Hyperparameters
 learning_rate = 0.0005
 gamma         = 0.98
 lmbda         = 0.95
 eps_clip      = 0.1
-K_epoch       = 2
+K_epoch       = 4
 T_horizon     = 500
 
 
@@ -107,12 +120,12 @@ class PPO(nn.Module):
                                           torch.tensor(r_lst), torch.tensor(s_prime_lst, dtype=torch.float), \
                                           torch.tensor(done_lst, dtype=torch.float), torch.tensor(prob_a_lst)
 
-        prob_a = prob_a.cuda()
-        a = a.cuda()
-        s_prime = s_prime.cuda()
-        r = r.cuda()
-        done_mask = done_mask.cuda()
-        s = s.cuda()
+        prob_a = prob_a.to(device)
+        a = a.to(device)
+        s_prime = s_prime.to(device)
+        r = r.to(device)
+        done_mask = done_mask.to(device)
+        s = s.to(device)
 
         self.data = []
         return s, a, r, s_prime, done_mask, prob_a
@@ -132,7 +145,7 @@ class PPO(nn.Module):
                 advantage = gamma * lmbda * advantage + delta_t[0]
                 advantage_lst.append([advantage])
             advantage_lst.reverse()
-            advantage = torch.tensor(advantage_lst, dtype=torch.float).cuda()
+            advantage = torch.tensor(advantage_lst, dtype=torch.float).to(device)
 
             pi = self.pi(s, softmax_dim=1)
 
@@ -148,17 +161,21 @@ class PPO(nn.Module):
             loss.mean().backward()
             self.optimizer.step()
 
-def main():
-    env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100))
+def train():
+    env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), inference=args.inference)
     arena_config_in = ArenaConfig(env_field)
-    print(arena_config_in.arenas)
+    #print(arena_config_in.arenas)
 
 
     model = PPO()
+    if os.path.exists(args.load_model): 
+        model.load_state_dict(torch.load(args.load_model))
+        print("Successfully loaded saved model from {}".format(args.load_model))
 
-    model = model.cuda()
+    model = model.to(device)
 
-    print_interval = 1
+
+    total_obs = 0 
 
     for n_epi in range(1, n_episodes+1):
         action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
@@ -170,10 +187,13 @@ def main():
         score = 0.0
         scores = []
 
+        start_episode = time.time()
+        n_obs = 0
         while not done:
             for t in range(T_horizon):
+                n_obs += n_arenas
 
-                prob = model.pi(torch.from_numpy(state).float().cuda())
+                prob = model.pi(torch.from_numpy(state).float().to(device))
                 m = Categorical(prob)
 
                 #a = m.sample().item()
@@ -201,15 +221,103 @@ def main():
                 if done:
                     break
 
-
+            start_train = time.time() 
             model.train_net()
+            end_train = time.time()
+            #print('time to train: ',end_train - start_train)
+
+        end_episode = time.time()
+
+        #print('{} observations/second'.format(n_obs/(end_episode - start_episode)))
 
         #scores.append(score)
 
         if n_epi%print_interval==0 and n_epi!=0:
-            print("Episode: {}, avg score: {:.1f}".format(n_epi, np.mean(scores)/n_arenas))
+            print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, np.mean(scores)/n_arenas, n_obs/(end_episode - start_episode)))
+
+        if n_epi%save_interval==0 and n_epi!=0:
+            torch.save(model.state_dict(), save_path+'ppo.pth')
+        
 
     env.close()
 
+def inference():
+    env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), inference=args.inference)
+    arena_config_in = ArenaConfig(env_field)
+    #print(arena_config_in.arenas)
+
+
+    model = PPO()
+    if os.path.exists(args.load_model): 
+        model.load_state_dict(torch.load(args.load_model))
+        print("Successfully loaded saved model from {}".format(args.load_model))
+
+    model = model.to(device)
+
+
+    total_obs = 0 
+
+    for n_epi in range(1, n_episodes+1):
+        action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
+        state = action_info[brain_name].visual_observations[0]
+
+        #state = np.moveaxis(state, -1, 0)
+        state = np.moveaxis(state, -1, 1)
+        done = False
+        score = 0.0
+
+        start_episode = time.time()
+        n_obs = 0
+        while not done:
+            for t in range(T_horizon):
+                n_obs += n_arenas
+
+                prob = model.pi(torch.from_numpy(state).float().to(device))
+                m = Categorical(prob)
+
+                #a = m.sample().item()
+                a = m.sample()
+                action = actions_array[a.cpu().numpy().astype(int)]
+                #s_prime, reward, done, info =
+                action_info = env.step(vector_action=action)
+                next_state = action_info[brain_name].visual_observations[0]
+                next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
+                reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
+                arenas_done       = action_info[brain_name].local_done
+                done = any(arenas_done)
+
+                #prob_a = prob[np.arange(prob.shape[0])[:,None], a.cpu().numpy().astype(int)[:,None]]
+
+                #for (s, a, r, n_s, p_a, d) in zip (state, a, reward, next_state, prob_a, arenas_done):
+                #    model.put_data((s, a, r, n_s, p_a, d))
+                #    scores.append(r)
+
+                state = next_state
+
+                score += reward[0]
+                if done:
+                    break
+
+            #start_train = time.time() 
+            #model.train_net()
+            #end_train = time.time()
+            #print('time to train: ',end_train - start_train)
+
+        end_episode = time.time()
+
+        #print('{} observations/second'.format(n_obs/(end_episode - start_episode)))
+
+        #scores.append(score)
+
+        if n_epi%print_interval==0 and n_epi!=0:
+            print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, score/n_obs, n_obs/(end_episode - start_episode)))
+
+        
+
+    env.close()
 if __name__ == '__main__':
-    main()
+
+    if not args.inference: 
+        train()
+    else: 
+        inference()
