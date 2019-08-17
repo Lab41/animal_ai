@@ -8,18 +8,26 @@ import numpy as np
 import time
 import argparse
 import os
+import datetime
 
 from animalai.envs import UnityEnvironment
 from animalai.envs.arena_config import ArenaConfig
 
 
 parser = argparse.ArgumentParser(description="Train ppo agent for AnimalAI.")
-parser.add_argument('--config', type=str, default='configs/1-Food.yaml', help='Environment config file')
-parser.add_argument('--load_model', type=str, default='saved_models/ppo.pth', help='Saved model to load')
-parser.add_argument('--inference', default=False, action='store_true', help='Run in inference mode')
+parser.add_argument('--train_name', type=str, help='Will save model with this name. Default: random')
+parser.add_argument('--config', type=str, default='configs/1-Food.yaml', help='Environment config file. Default: "configs/1-Food.yaml"')
+parser.add_argument('--load_model', type=str, default='saved_models/ppo.pth', help='Saved model to load. Default: "saved_models/ppo.pth"')
+parser.add_argument('--inference', default=False, action='store_true', help='Run in inference mode. Default: False')
 
 args = parser.parse_args()
 
+
+if not args.inference: 
+    if args.train_name is not None: 
+        train_filename = '{}.pth'.format(args.train_name)
+    else: 
+        train_filename = 'ppo_{}.pth'.format(np.random.randint(100000,999999)) 
 # my params
 env_path = '../env/AnimalAI'
 brain_name='Learner'
@@ -236,7 +244,8 @@ def train():
             print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, np.mean(scores)/n_arenas, n_obs/(end_episode - start_episode)))
 
         if n_epi%save_interval==0 and n_epi!=0:
-            torch.save(model.state_dict(), save_path+'ppo.pth')
+            print("Saving model to {}ppo.pth at {}".format(save_path, datetime.datetime.now()))
+            torch.save(model.state_dict(), save_path+train_filename)
         
 
     env.close()
@@ -318,6 +327,8 @@ def inference():
 if __name__ == '__main__':
 
     if not args.inference: 
+        print("Starting agent in train mode...")
         train()
     else: 
+        print("Starting agent in inference mode...")
         inference()
