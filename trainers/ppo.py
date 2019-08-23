@@ -14,6 +14,8 @@ from animalai.envs import UnityEnvironment
 from animalai.envs.arena_config import ArenaConfig
 
 
+from env_utils import *
+
 parser = argparse.ArgumentParser(description="Train ppo agent for AnimalAI.")
 parser.add_argument('--train_name', type=str, help='Will save model with this name. Default: random')
 parser.add_argument('--config', type=str, default='configs/1-Food.yaml', help='Environment config file. Default: "configs/1-Food.yaml"')
@@ -23,15 +25,15 @@ parser.add_argument('--inference', default=False, action='store_true', help='Run
 args = parser.parse_args()
 
 
-if not args.inference: 
-    if args.train_name is not None: 
+if not args.inference:
+    if args.train_name is not None:
         train_filename = '{}.pth'.format(args.train_name)
-    else: 
-        train_filename = 'ppo_{}.pth'.format(np.random.randint(100000,999999)) 
+    else:
+        train_filename = 'ppo_{}.pth'.format(np.random.randint(100000,999999))
 # my params
 env_path = '../env/AnimalAI'
-brain_name='Learner'
-train_mode=True
+brain_name = 'Learner'
+train_mode = True
 num_actions = 9
 color_channels = 3
 env_field = args.config
@@ -176,14 +178,14 @@ def train():
 
 
     model = PPO()
-    if os.path.exists(args.load_model): 
+    if os.path.exists(args.load_model):
         model.load_state_dict(torch.load(args.load_model))
         print("Successfully loaded saved model from {}".format(args.load_model))
 
     model = model.to(device)
 
 
-    total_obs = 0 
+    total_obs = 0
 
     for n_epi in range(1, n_episodes+1):
         action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
@@ -210,6 +212,9 @@ def train():
                 #s_prime, reward, done, info =
                 action_info = env.step(vector_action=action)
                 next_state = action_info[brain_name].visual_observations[0]
+                velocity_obs = action_info[brain_name].vector_observations
+                print(velocity_obs)
+                asdf
                 #next_state = np.moveaxis(next_state, -1, 0)
                 next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
                 reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
@@ -229,7 +234,7 @@ def train():
                 if done:
                     break
 
-            start_train = time.time() 
+            start_train = time.time()
             model.train_net()
             end_train = time.time()
             #print('time to train: ',end_train - start_train)
@@ -246,25 +251,41 @@ def train():
         if n_epi%save_interval==0 and n_epi!=0:
             print("Saving model to {}ppo.pth at {}".format(save_path, datetime.datetime.now()))
             torch.save(model.state_dict(), save_path+train_filename)
-        
+
 
     env.close()
 
+def env_info(env_config):
+
+    for i, arena in env_config.arenas.items():
+        print("Arena Config #{}".format(i))
+        print("max time steps = {}".format(arena.t))
+        for j, item in enumerate(arena.items):
+            print("Item name: {}".format(item.name))
+            print("Item positions: {}".format(item.positions))
+            print("Item rotations: {}".format(item.rotations))
+            print("Item sizes: {}".format(item.sizes))
+            print("Item colors: {}".format(item.colors))
+
 def inference():
     env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), inference=args.inference)
-    arena_config_in = ArenaConfig(env_field)
-    #print(arena_config_in.arenas)
+    #arena_config_in = ArenaConfig(env_field)
+
+
+    b_env = better_env(n_arenas = 1)
+    arena_config_in = b_env.env_config
+    ps = position_tracker(b_env.get_start_positions())
 
 
     model = PPO()
-    if os.path.exists(args.load_model): 
+    if os.path.exists(args.load_model):
         model.load_state_dict(torch.load(args.load_model))
         print("Successfully loaded saved model from {}".format(args.load_model))
 
     model = model.to(device)
 
 
-    total_obs = 0 
+    total_obs = 0
 
     for n_epi in range(1, n_episodes+1):
         action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
@@ -290,6 +311,11 @@ def inference():
                 #s_prime, reward, done, info =
                 action_info = env.step(vector_action=action)
                 next_state = action_info[brain_name].visual_observations[0]
+                velocity_obs = action_info[brain_name].vector_observations
+                #ps.position_step(velocity_obs)
+
+                #print('Current position = {}'.format(ps.current_position))
+
                 next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
                 reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
                 arenas_done       = action_info[brain_name].local_done
@@ -307,7 +333,7 @@ def inference():
                 if done:
                     break
 
-            #start_train = time.time() 
+            #start_train = time.time()
             #model.train_net()
             #end_train = time.time()
             #print('time to train: ',end_train - start_train)
@@ -321,14 +347,14 @@ def inference():
         if n_epi%print_interval==0 and n_epi!=0:
             print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, score/n_obs, n_obs/(end_episode - start_episode)))
 
-        
+
 
     env.close()
 if __name__ == '__main__':
 
-    if not args.inference: 
+    if not args.inference:
         print("Starting agent in train mode...")
         train()
-    else: 
+    else:
         print("Starting agent in inference mode...")
         inference()

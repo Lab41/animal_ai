@@ -8,6 +8,25 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 
+class position_tracker():
+
+    def __init__(self, starting_positions):
+
+        self.agent_start = starting_positions['Agent']
+        self.good_goal_start = starting_positions['GoodGoal']
+
+        self.current_position = np.array(self.agent_start).astype('float64')
+
+
+    def position_step(self, velocity_obs):
+
+        velocity_obs = np.array(velocity_obs)
+        delta_distance = 0.0595 * velocity_obs
+
+        self.current_position += delta_distance
+
+
+
 class better_env():
 
     def __init__(self, n_arenas=3):
@@ -95,6 +114,21 @@ class better_env():
 
         return details
 
+    def get_start_positions(self):
+
+        start_positions = {'Agent': [], 'GoodGoal': []}
+
+        for arena_idx, arena in self.env_config.arenas.items():
+
+            for item_idx, item in enumerate(arena.items):
+                if item.name == 'Agent' or item.name == 'GoodGoal':
+                    for position in item.positions:
+                        start_positions[item.name].append([position.x, position.y, position.z])
+
+        return start_positions
+
+
+
 
 
 def env_info(env_config):
@@ -114,3 +148,9 @@ env_config = env.env_config
 env_info(env_config)
 pp.pprint(env.details)
 #pp.pprint(env.details2)
+
+pp.pprint(env.get_start_positions())
+
+
+ps = position_tracker(env.get_start_positions())
+print(ps.current_position)
