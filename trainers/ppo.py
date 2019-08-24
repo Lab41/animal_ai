@@ -268,13 +268,14 @@ def env_info(env_config):
             print("Item colors: {}".format(item.colors))
 
 def inference():
-    env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), inference=args.inference)
+    env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), play=False,inference=args.inference)
     #arena_config_in = ArenaConfig(env_field)
 
 
     b_env = better_env(n_arenas = 1)
     arena_config_in = b_env.env_config
-    ps = position_tracker(b_env.get_start_positions())
+    start_positions, start_rotations = b_env.get_start_positions()
+    ps = position_tracker(start_positions, start_rotations)
 
 
     model = PPO()
@@ -288,16 +289,30 @@ def inference():
     total_obs = 0
 
     for n_epi in range(1, n_episodes+1):
-        action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
+
+        action_info = env.reset(arenas_configurations=arena_config_in, train_mode=False)
         state = action_info[brain_name].visual_observations[0]
 
-        #state = np.moveaxis(state, -1, 0)
         state = np.moveaxis(state, -1, 1)
         done = False
         score = 0.0
 
         start_episode = time.time()
         n_obs = 0
+        action = [[0,1]]
+        action_info = env.step(vector_action=action)
+        velocity_obs = action_info[brain_name].vector_observations
+        ps.position_step(velocity_obs, action)
+        action_info = env.step(vector_action=action)
+        velocity_obs = action_info[brain_name].vector_observations
+        ps.position_step(velocity_obs, action)
+        action_info = env.step(vector_action=action)
+        velocity_obs = action_info[brain_name].vector_observations
+        ps.position_step(velocity_obs, action)
+        action_info = env.step(vector_action=action)
+        velocity_obs = action_info[brain_name].vector_observations
+        ps.position_step(velocity_obs, action)
+
         while not done:
             for t in range(T_horizon):
                 n_obs += n_arenas
@@ -305,27 +320,25 @@ def inference():
                 prob = model.pi(torch.from_numpy(state).float().to(device))
                 m = Categorical(prob)
 
-                #a = m.sample().item()
                 a = m.sample()
-                action = actions_array[a.cpu().numpy().astype(int)]
-                #s_prime, reward, done, info =
+                #action = actions_array[a.cpu().numpy().astype(int)]
+                #if np.random.randint(0,2):
+                #    action = [0,1]
+                #else:
+                #    action = [0,2]
                 action_info = env.step(vector_action=action)
+                action = [[1,0]]
                 next_state = action_info[brain_name].visual_observations[0]
                 velocity_obs = action_info[brain_name].vector_observations
-                #ps.position_step(velocity_obs)
 
-                #print('Current position = {}'.format(ps.current_position))
+                ps.position_step(velocity_obs, action)
+                print('Current position = {}, velocity = {}'.format(ps.current_position, velocity_obs))
 
                 next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
                 reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
                 arenas_done       = action_info[brain_name].local_done
                 done = any(arenas_done)
 
-                #prob_a = prob[np.arange(prob.shape[0])[:,None], a.cpu().numpy().astype(int)[:,None]]
-
-                #for (s, a, r, n_s, p_a, d) in zip (state, a, reward, next_state, prob_a, arenas_done):
-                #    model.put_data((s, a, r, n_s, p_a, d))
-                #    scores.append(r)
 
                 state = next_state
 
@@ -333,16 +346,9 @@ def inference():
                 if done:
                     break
 
-            #start_train = time.time()
-            #model.train_net()
-            #end_train = time.time()
-            #print('time to train: ',end_train - start_train)
 
         end_episode = time.time()
 
-        #print('{} observations/second'.format(n_obs/(end_episode - start_episode)))
-
-        #scores.append(score)
 
         if n_epi%print_interval==0 and n_epi!=0:
             print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, score/n_obs, n_obs/(end_episode - start_episode)))

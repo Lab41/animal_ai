@@ -10,20 +10,37 @@ pp = pprint.PrettyPrinter(indent=4)
 
 class position_tracker():
 
-    def __init__(self, starting_positions):
+    def __init__(self, starting_positions, starting_rotations):
 
         self.agent_start = starting_positions['Agent']
         self.good_goal_start = starting_positions['GoodGoal']
 
+
         self.current_position = np.array(self.agent_start).astype('float64')
 
+        self.current_rotation = np.array(starting_rotations['Agent']).astype('float64')
 
-    def position_step(self, velocity_obs):
 
-        velocity_obs = np.array(velocity_obs)
+    def position_step(self, velocity_obs, action):
+
+
+        action = np.array(action)
+        self.current_rotation[np.where(action[:,1] == 1)] -= 6
+        self.current_rotation[np.where(action[:,1] == 2)] += 6
+
+        rot_mat = get_rot_mat(deg_to_rad(self.current_rotation[0][0]))
+
+        velocity_obs = np.dot(rot_mat, np.array(velocity_obs).T).T
         delta_distance = 0.0595 * velocity_obs
 
         self.current_position += delta_distance
+
+
+def deg_to_rad(deg):
+    return deg * (np.pi/180)
+
+def get_rot_mat(rad):
+    return np.array([[np.cos(rad), 0, -np.sin(rad)],[0, 1, 0],[np.sin(rad), 0, np.cos(rad)]])
 
 
 
@@ -39,7 +56,7 @@ class better_env():
 
     def create_env(self, n_arenas=3):
 
-        include_items = {'Agent':1, 'GoodGoal':1, 'Wall':2}
+        include_items = {'Agent':1}#, 'GoodGoal':1, 'Wall':2}
 
 
         env_config = ArenaConfig()
@@ -60,6 +77,7 @@ class better_env():
                 name = item_type
                 colors = []
                 positions = []
+                rotations = []
 
                 # Loop over item counts
                 for j in range(item_count):
@@ -77,14 +95,18 @@ class better_env():
                         positions.append(Vector3(x=x, y=y, z=z))
 
                     elif item_type == 'Agent':
-                        x = np.random.randint(1,39)
-                        y = np.random.randint(1,39)
-                        z = np.random.randint(1,39)
+                        #x = np.random.randint(1,39)
+                        #y = np.random.randint(1,39)
+                        #z = np.random.randint(1,39)
+                        x = 0.5
+                        y = 0.5
+                        z = 0.5
                         #self.details[i][item_type]['positions'].append((x,y,z))
 
                         positions.append(Vector3(x=x, y=y, z=z))
+                        rotations.append(0)
 
-                item_list.append(Item(name=name, positions=positions, colors=colors))
+                item_list.append(Item(name=name, positions=positions, rotations=rotations, colors=colors))
             env_config.arenas[i].items = item_list
 
         return env_config
@@ -117,6 +139,7 @@ class better_env():
     def get_start_positions(self):
 
         start_positions = {'Agent': [], 'GoodGoal': []}
+        start_rotations = {'Agent':[]}
 
         for arena_idx, arena in self.env_config.arenas.items():
 
@@ -124,8 +147,11 @@ class better_env():
                 if item.name == 'Agent' or item.name == 'GoodGoal':
                     for position in item.positions:
                         start_positions[item.name].append([position.x, position.y, position.z])
+                if item.name == 'Agent':
+                    for rotation in item.rotations:
+                        start_rotations[item.name].append([rotation])
 
-        return start_positions
+        return start_positions, start_rotations
 
 
 
@@ -151,6 +177,6 @@ pp.pprint(env.details)
 
 pp.pprint(env.get_start_positions())
 
-
-ps = position_tracker(env.get_start_positions())
+start_pos, start_rot = env.get_start_positions()
+ps = position_tracker(start_pos, start_rot)
 print(ps.current_position)
