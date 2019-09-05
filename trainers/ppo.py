@@ -34,13 +34,16 @@ if not args.inference:
 env_path = '../env/AnimalAI'
 brain_name = 'Learner'
 train_mode = True
-num_actions = 9
 color_channels = 3
 env_field = args.config
 n_episodes = 20000
 #max_t = 100
-actions_array = np.array([[0,0],[0,1],[0,2],[1,0], [1,1],[1,2], [2,0],[2,1],[2,2]])
-n_arenas = 3
+#num_actions = 9
+#actions_array = np.array([[0,0],[0,1],[0,2],[1,0], [1,1],[1,2], [2,0],[2,1],[2,2]])
+num_actions = 5
+actions_array = np.array([[0,0],[0,1],[0,2],[1,0],[2,0]])
+
+n_arenas = 1
 print_interval = 1
 save_interval = 10
 save_path = 'saved_models/'
@@ -173,7 +176,7 @@ class PPO(nn.Module):
 
 def train():
     env=UnityEnvironment(file_name=env_path, n_arenas=n_arenas, worker_id=np.random.randint(1,100), inference=args.inference)
-    arena_config_in = ArenaConfig(env_field)
+    #arena_config_in = ArenaConfig(env_field)
     #print(arena_config_in.arenas)
 
 
@@ -188,6 +191,11 @@ def train():
     total_obs = 0
 
     for n_epi in range(1, n_episodes+1):
+        b_env = better_env(n_arenas = 1)
+        arena_config_in = b_env.env_config
+        start_positions, start_rotations = b_env.get_start_positions()
+        ps = position_tracker(start_positions, start_rotations)
+
         action_info = env.reset(arenas_configurations=arena_config_in, train_mode=train_mode)
         state = action_info[brain_name].visual_observations[0]
 
@@ -213,11 +221,16 @@ def train():
                 action_info = env.step(vector_action=action)
                 next_state = action_info[brain_name].visual_observations[0]
                 velocity_obs = action_info[brain_name].vector_observations
-                print(velocity_obs)
-                asdf
+
+                ps.position_step(velocity_obs, action)
+                #print('Current position = {}, velocity = {}'.format(ps.current_position, velocity_obs))
+                #print('Distance to goal = {}'.format(ps.distance_to_goal()))
+
                 #next_state = np.moveaxis(next_state, -1, 0)
                 next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
                 reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
+                reward -= ps.distance_to_goal()/100
+                #print(reward)
                 arenas_done       = action_info[brain_name].local_done
                 done = any(arenas_done)
 
@@ -249,7 +262,7 @@ def train():
             print("Episode: {}, avg score: {:.4f}, [{:.0f}] observations/second".format(n_epi, np.mean(scores)/n_arenas, n_obs/(end_episode - start_episode)))
 
         if n_epi%save_interval==0 and n_epi!=0:
-            print("Saving model to {}ppo.pth at {}".format(save_path, datetime.datetime.now()))
+            print("Saving model to {} at {}".format(save_path+train_filename, datetime.datetime.now()))
             torch.save(model.state_dict(), save_path+train_filename)
 
 
@@ -272,10 +285,6 @@ def inference():
     #arena_config_in = ArenaConfig(env_field)
 
 
-    b_env = better_env(n_arenas = 1)
-    arena_config_in = b_env.env_config
-    start_positions, start_rotations = b_env.get_start_positions()
-    ps = position_tracker(start_positions, start_rotations)
 
 
     model = PPO()
@@ -290,6 +299,11 @@ def inference():
 
     for n_epi in range(1, n_episodes+1):
 
+        b_env = better_env(n_arenas = 1)
+        arena_config_in = b_env.env_config
+        start_positions, start_rotations = b_env.get_start_positions()
+        ps = position_tracker(start_positions, start_rotations)
+
         action_info = env.reset(arenas_configurations=arena_config_in, train_mode=False)
         state = action_info[brain_name].visual_observations[0]
 
@@ -303,15 +317,7 @@ def inference():
         action_info = env.step(vector_action=action)
         velocity_obs = action_info[brain_name].vector_observations
         ps.position_step(velocity_obs, action)
-        action_info = env.step(vector_action=action)
-        velocity_obs = action_info[brain_name].vector_observations
-        ps.position_step(velocity_obs, action)
-        action_info = env.step(vector_action=action)
-        velocity_obs = action_info[brain_name].vector_observations
-        ps.position_step(velocity_obs, action)
-        action_info = env.step(vector_action=action)
-        velocity_obs = action_info[brain_name].vector_observations
-        ps.position_step(velocity_obs, action)
+        print('Start position = {}, velocity = {}'.format(ps.current_position, velocity_obs))
 
         while not done:
             for t in range(T_horizon):
@@ -321,18 +327,19 @@ def inference():
                 m = Categorical(prob)
 
                 a = m.sample()
-                #action = actions_array[a.cpu().numpy().astype(int)]
+                action = actions_array[a.cpu().numpy().astype(int)]
                 #if np.random.randint(0,2):
                 #    action = [0,1]
                 #else:
                 #    action = [0,2]
                 action_info = env.step(vector_action=action)
-                action = [[1,0]]
+                #action = [[1,0]]
                 next_state = action_info[brain_name].visual_observations[0]
                 velocity_obs = action_info[brain_name].vector_observations
 
                 ps.position_step(velocity_obs, action)
-                print('Current position = {}, velocity = {}'.format(ps.current_position, velocity_obs))
+                #print('Current position = {}, velocity = {}'.format(ps.current_position, velocity_obs))
+                print('Distance to goal = {}'.format(ps.distance_to_goal()))
 
                 next_state = np.moveaxis(next_state, -1, 1) # next state shape = [n_arenas, 3, 84, 84]
                 reward     = action_info[brain_name].rewards # list of rewards len = n_arenas
