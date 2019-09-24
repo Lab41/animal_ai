@@ -1,4 +1,4 @@
-# Animal-AI Olympics
+# Animal-AI Olympics- Ali Hassanzadeh
 
 <p align="center">
   <img height="300" src="documentation/PrefabsPictures/steampunkFOURcrop.png">
