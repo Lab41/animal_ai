@@ -1,18 +1,6 @@
 # Env folder
 
-Place in this folder the content of the archive specific to your OS.
+You can download my environment for linux from here: https://drive.google.com/open?id=1v5NuoZgnAAsAhs9m7kZjJxUyymvKyWah 
 
-For Linux this folder should contain all folders and the executable :
-```
-AnimalAI.x86_84
-```
+Place the executive file(.x86_64) and folder (AnimnalAi_Ali_Data) here (animal_ai_private/env). 
 
-For Mac this folder should contain the executable :
-```
-AnimalAI.app
-```
-
-For Windows this folder should contain all folders and the executable :
-```
-AnimalAI.exe
-```
