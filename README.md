@@ -2,15 +2,64 @@
 
 
 # Running AnimalAI remotely
-The AnimalAI environment requires rendering to a screen. There are several ways of virtually emulating a screen in Linux. (This is not the same as the `screen` command.)
+The AnimalAI environment requires rendering to a screen (X windows system). There are several ways of virtually emulating a screen in Linux. (This is not the same as the `screen` command.)
+
+## Method 0 (requires physical screen/X window)
+This method will connect to the physical display and render the graphics there. You will not see anything on your remote computer. 
+```
+ssh host
+export DISPLAY=:1  # or :0 depending on your version of Linux
+# run your scripts as usual
+```
 
 ## Method 1
+Install VirtualGL and TurboVNC (based on instructions from [here](https://gist.github.com/cyberang3l/422a77a47bdc15a0824d5cca47e64ba2)
 
-## Method 2
-The original documentation has a page for [training in the cloud](documentation/cloudTraining.md). This method uses `xvfb` (X virtual frame buffer) which renders the output in virtual memory so it is never actually available for viewing. I briefly tried this method but didn't get it to work. You must set `dockerTraining=True` in your Python code in order to activate the xvfb wrapper. See [these lines of code](animalai/animalai/envs/environment.py#L201) for more
-info.
-You could also try running like below: 
-`xvfb-run --auto-servernum --server-args='-screen 0 640x480x24' python trainDopamine.py`
+```
+sudo dpkg -i /mnt/fs03/home/ltindall/lab41_dcos/virtualgl_*.deb
+sudo /opt/VirtualGL/bin/vglserver_config
+sudo dpkg -i /mnt/fs03/home/ltindall/lab41_dcos/turbovnc_*.deb
+
+# run the line below to only allow one time password authentication (I thought this had the best trade off between security and ease of use)
+# sudo bash -c 'echo "permitted-security-types = TLSOtp" >> /etc/turbovncserver-security.conf'
+
+echo "PATH=\$PATH:/opt/TurboVNC/bin" >> ~/.bashrc
+```
+Change n to some number in the following commands. n will be your display number. 
+To start running a server on display n with one time password (otp) enabled: 
+```
+vncserver -otp :n
+```
+The VNC server will now be running on port 5900+n
+
+To retrieve a one time password, first connect to your system then run: 
+```
+vncpasswd -o -display :n
+```
+
+I added the following alias to my laptop in order to easily connect: 
+```
+alias vnc='/opt/TurboVNC/bin/vncviewer 10.225.137.15:2 -Password `ssh desktop "vncpasswd -o -display :2 2>&1 | sed -e '"'"'s/.*://'"'"'"`'
+```
+
+
+## Method 2 (requires physical screen)
+Install Teamviewer. 
+This has some lag but probably the easiest setup. 
+
+## Method 3
+Forward your X session over ssh. There are many online tutorials for this. This method is similar to Method 1.
+
+## Method 4
+The original documentation has a page for [training in the cloud](documentation/cloudTraining.md). This method uses `xvfb` (X virtual frame buffer) which renders the output in virtual memory so it is never actually available for viewing. You must set `dockerTraining=True` in your Python code in order to activate the xvfb wrapper. See [these lines of code](animalai/animalai/envs/environment.py#L201) for more
+info. I briefly tried this method but kept getting OpenGL errors so I stopped trying. 
+
+Here are some other things I tried/learned if you want to use this method.
+
+You could also try running:
+```
+xvfb-run --auto-servernum --server-args='-screen 0 640x480x24' python trainDopamine.py
+```
 or 
 ```
 Xvfb :5 -screen 0 800x600x24 &
