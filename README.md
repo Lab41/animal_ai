@@ -15,10 +15,13 @@ export DISPLAY=:1  # or :0 depending on your version of Linux
 ## Method 1
 Install VirtualGL and TurboVNC (based on instructions from [here](https://gist.github.com/cyberang3l/422a77a47bdc15a0824d5cca47e64ba2)
 
+The install files for Ubuntu are in the [remote](remote) directory. 
+Other versions can be download at [TurboVNC Download](https://sourceforge.net/projects/turbovnc/) and [VirtualGL Download](https://sourceforge.net/projects/virtualgl/)
+
 ```
-sudo dpkg -i /mnt/fs03/home/ltindall/lab41_dcos/virtualgl_*.deb
+sudo dpkg -i ./remote/virtualgl_*.deb
 sudo /opt/VirtualGL/bin/vglserver_config
-sudo dpkg -i /mnt/fs03/home/ltindall/lab41_dcos/turbovnc_*.deb
+sudo dpkg -i ./remote/turbovnc_*.deb
 
 # run the line below to only allow one time password authentication (I thought this had the best trade off between security and ease of use)
 # sudo bash -c 'echo "permitted-security-types = TLSOtp" >> /etc/turbovncserver-security.conf'
