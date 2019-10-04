@@ -82,6 +82,19 @@ class position_tracker():
         else:
             return deg[0]
 
+    def get_map(self):
+
+        maap = np.zeros((40,40))
+
+
+        goal_coord = np.floor(self.good_goal_start[0]).astype(int)[[0,2]]
+        agent_coord = np.floor(self.current_position[0]).astype(int)[[0,2]]
+
+        maap[goal_coord[1]][goal_coord[0]] = 1
+        maap[agent_coord[1]][agent_coord[0]] = 1
+
+        return maap
+
 
 
 def deg_to_rad(deg):
@@ -97,7 +110,7 @@ def get_rot_mat(rad):
 
 class better_env():
 
-    def __init__(self, n_arenas=2, walls=2, t=250, play=False, inference=False):
+    def __init__(self, n_arenas=1, walls=7, t=1000, play=False, inference=False):
         print(n_arenas)
 
         self.n_arenas = n_arenas
