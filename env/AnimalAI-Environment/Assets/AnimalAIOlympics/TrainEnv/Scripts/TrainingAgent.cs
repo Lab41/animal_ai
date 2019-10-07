@@ -48,28 +48,51 @@ public class TrainingAgent : Agent, IPrefab
     private Color[] _allBlackImage;
     private PlayerControls _playerScript;
 
+    //private GameObject _goodgoal; // add by ali
+    public GameObject goodgoal;
+    private float reward_distance;
+    
     public override void InitializeAgent()
     {
         _area = GetComponentInParent<TrainingArea>();
         _rigidBody = GetComponent<Rigidbody>();
         _rewardPerStep = agentParameters.maxStep > 0 ? -1f / agentParameters.maxStep : 0;
         _playerScript = GameObject.FindObjectOfType<PlayerControls>();
+        // Ali- find the Greenball(goal) in the prefab
+        goodgoal=GameObject.Find("GoodGoal");
+
     }
 
     public override void CollectObservations()
-    {
+    {   // this function is called every time step to track the states 
+
         Vector3 localVel = transform.InverseTransformDirection(_rigidBody.velocity);
         AddVectorObs(localVel);
+
+        // Ali- State of the agent 
+        AddVectorObs(Vector3.Distance(goodgoal.transform.position, this.transform.position)); // collect the distance information of the agent and goal
+        AddVectorObs(this.transform.position); // collect the agent postion informaiton
+        AddVectorObs(goodgoal.transform.position); // collect the goal ball postion information
+        AddVectorObs(goodgoal.transform.InverseTransformDirection(goodgoal.GetComponent<Rigidbody>().velocity));
+        // if you need to add more goals, like the multi goal or bad goal
+        // you have to add their postion informaiton here too
     }
 
     public override void AgentAction(float[] vectorAction, string textAction)
-    {
+    {   // this function is called every time step to track the actions 
+
         int actionForward = Mathf.FloorToInt(vectorAction[0]);
         int actionRotate = Mathf.FloorToInt(vectorAction[1]);
 
         moveAgent(actionForward, actionRotate);
 
+
         AddReward(_rewardPerStep);
+        //Ali- add penalty for distance
+        // here all the reward has to be update for each time step
+        reward_distance=-(Vector3.Distance(goodgoal.transform.position, this.transform.position))/100.0f;
+        AddReward(reward_distance); //punish the distance to goal
+        // if you have other good goal or bad goal, have to add reward here too, AddReawrd(somthing );
     }
 
     private void moveAgent(int actionForward, int actionRotate)
