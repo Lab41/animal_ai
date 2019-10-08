@@ -12,6 +12,8 @@ python a3c_test.py --saved_filepath trained_models/name_of_model_file
 ## Saved models
 models are saved in `trained_models` directory
 
+## TODO
+1. Write documentation for `env_utils.py`
 
 
 
