@@ -13,6 +13,16 @@ export DISPLAY=:1  # or :0 depending on your version of Linux
 ```
 
 ## Method 1
+
+### DCOS instructions
+Add Networking Service endpoints when creating a new instance. 
+My endpoints are listed below: 
+1. Container Port: 8888, Host Port: Assign Automatically; Used for Jupyter 
+2. Container Port: 22, Host Port: Assign Automatically; Used for SSH, you will need to make note of which port is assigned and use that for ssh'ing to your instance. 
+3. Container Port: 5900+n (where n is the display number used below in setting up TurboVNC), Host Port: 5900+n; Used for TurboVNC
+
+
+
 Install VirtualGL and TurboVNC (based on instructions from [here](https://gist.github.com/cyberang3l/422a77a47bdc15a0824d5cca47e64ba2)
 
 The install files for Ubuntu are in the [remote](remote) directory. 
@@ -92,3 +102,4 @@ OpenGL core profile context flags: (none)
 OpenGL core profile profile mask: core profile
 OpenGL core profile extensions:
 ```
+
