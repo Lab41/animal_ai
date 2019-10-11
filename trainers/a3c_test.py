@@ -79,9 +79,9 @@ def test(opt):
 
     action_info = env.reset(arenas_configurations=b_env.env_config, train_mode=False)
     state = action_info[brain_name].visual_observations[0]
-    ax1 = plt.subplot(111)
-    im1 = ax1.imshow(state[0])
-    plt.ion()
+    #ax1 = plt.subplot(111)
+    #im1 = ax1.imshow(state[0])
+    #plt.ion()
     state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(device)
     done = True
 
@@ -107,22 +107,22 @@ def test(opt):
 
         logits, value, h_0, c_0 = model(state, h_0, c_0)
         policy = F.softmax(logits, dim=1)
-        print(policy)
+        #print(policy)
         action_idx = torch.argmax(policy).item()
         action_idx = int(action_idx)
         action = actions_array[action_idx]
         action_info = env.step(vector_action=action)
 
         state = action_info[brain_name].visual_observations[0]
-        im1.set_data(state[0])
-        plt.pause(0.01)
+        #im1.set_data(state[0])
+        #plt.pause(0.01)
         state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(device)
 
         velocity_obs = action_info[brain_name].vector_observations
         b_env.position_tracker.position_step(velocity_obs, action)
 
         #print("{}__{}".format(b_env.position_tracker.current_rotation,b_env.position_tracker.angle_to_goal()))
-        print("Current position = {}".format(b_env.position_tracker.current_position))
+        #print("Current position = {}".format(b_env.position_tracker.current_position))
 
 
         arenas_done       = action_info[brain_name].local_done
