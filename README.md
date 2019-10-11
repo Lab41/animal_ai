@@ -50,9 +50,9 @@ To retrieve a one time password, first connect to your system then run:
 vncpasswd -o -display :n
 ```
 
-I added the following alias to my laptop in order to easily connect: 
+I added the following alias to my laptop in order to easily connect(replace `remote_ip` and `n`): 
 ```
-alias vnc='/opt/TurboVNC/bin/vncviewer 10.225.137.15:2 -Password `ssh desktop "vncpasswd -o -display :2 2>&1 | sed -e '"'"'s/.*://'"'"'"`'
+alias vnc='/opt/TurboVNC/bin/vncviewer remote_ip:n -Password `ssh desktop "vncpasswd -o -display :n 2>&1 | sed -e '"'"'s/.*://'"'"'"`'
 ```
 
 
