@@ -2,16 +2,27 @@ from animalai.envs.arena_config import Vector3, RGB, Item, Arena, ArenaConfig
 from animalai.envs import UnityEnvironment
 from collections import defaultdict
 import numpy as np
-import pprint
-
-
-pp = pprint.PrettyPrinter(indent=4)
-
-np.set_printoptions(threshold=np.inf)
 
 class position_tracker():
+    """
+    Class for tracking the position of the agent and food.
+
+    Attributes:
+        agent_start (list): Starting position of agent.
+        good_goal_start (list): Starting position of food/good goal.
+        current_position (list): Current position of agent.
+        current_rotation (list): Current rotation of agent.
+        visited (list): Matrix to track visited locations.
+    """
 
     def __init__(self, starting_positions, starting_rotations):
+        """
+        Constructor for position_tracker class.
+
+        Parameters:
+            starting_positions (dict): Starting positions for agent and items in env.
+            starting_rotations (dict): Starting rotations for agent and items in env.
+        """
 
         self.agent_start = starting_positions['Agent']
         self.good_goal_start = np.array(starting_positions['GoodGoal']).astype('float64')
@@ -26,6 +37,14 @@ class position_tracker():
 
 
     def position_step(self, velocity_obs, action):
+        """
+        Updates the position, rotation, and visited matrix of the agent at each action step.
+
+        Parameters:
+            velocity_obs (list): Velocity of the agent returned by Unity Env.
+            action (list): The last action taken by the agent.
+
+        """
 
 
         action = np.array(action)
@@ -50,13 +69,8 @@ class position_tracker():
             self.visited[square_coord[1],square_coord[0]] = 0
 
 
-
-
-
-
     def distance_to_goal(self):
-
-
+        """Returns the Euclidean distance between the agent and the good goal."""
         distance = 0
         for g_pos, a_pos in zip(self.good_goal_start[0], self.current_position[0]):
 
@@ -66,8 +80,7 @@ class position_tracker():
         return distance
 
     def angle_to_goal(self):
-
-
+        """Returns the angle in degrees between the agent and the good goal."""
         agent_to_goal_vec = self.good_goal_start - self.current_position
         agent_to_goal_vec = np.delete(agent_to_goal_vec, 1, 1)
 
@@ -83,6 +96,7 @@ class position_tracker():
             return deg[0]
 
     def get_map(self):
+        """Creates an occupancy matrix of the env with the agent and good goal marked as 1."""
 
         maap = np.zeros((40,40))
 
@@ -259,14 +273,3 @@ def env_info(env_config):
             print("{:8s}Item sizes: {}".format('',item.sizes))
             print("{:8s}Item colors: {}".format('',item.colors))
 
-#env = better_env()
-#env_config = env.env_config
-#env_info(env_config)
-#pp.pprint(env.details)
-#pp.pprint(env.details2)
-
-#pp.pprint(env.get_start_positions())
-
-#start_pos, start_rot = env.get_start_positions()
-#ps = position_tracker(start_pos, start_rot)
-#print(ps.current_position)
