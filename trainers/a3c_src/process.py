@@ -4,7 +4,7 @@
 
 import torch
 #from src.env import create_train_env
-from a3c_src.model import ActorCritic
+from a3c_src.model import ActorCritic, Mapper
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from collections import deque
@@ -48,6 +48,9 @@ def local_train(index, opt, global_model, optimizer, save=False):
     local_model = ActorCritic(num_states, num_actions).to(device)
     local_model.train()
 
+    local_mapper = Mapper(num_states).to(device)
+    local_mapper.train()
+
 
 
     action_info = env.reset(arenas_configurations=b_env.env_config, train_mode=True)
@@ -72,15 +75,23 @@ def local_train(index, opt, global_model, optimizer, save=False):
         if done:
             h_0 = torch.zeros((1, 512), dtype=torch.float)
             c_0 = torch.zeros((1, 512), dtype=torch.float)
+
+            h_0_mapper = torch.zeros((1, 512), dtype=torch.float)
+            c_0_mapper = torch.zeros((1, 512), dtype=torch.float)
+
         else:
             h_0 = h_0.detach()
             c_0 = c_0.detach()
 
+            h_0_mapper = h_0_mapper.detach()
+            c_0_mapper = c_0_mapper.detach()
+
         h_0 = h_0.to(device)
         c_0 = c_0.to(device)
-        #if opt.use_gpu:
-        #    h_0 = h_0.cuda()
-        #    c_0 = c_0.cuda()
+
+        h_0_mapper = h_0_mapper.to(device)
+        c_0_mapper = c_0_mapper.to(device)
+
 
         log_policies = []
         values = []
@@ -90,6 +101,12 @@ def local_train(index, opt, global_model, optimizer, save=False):
         for _ in range(opt.num_local_steps):
             curr_step += 1
             logits, value, h_0, c_0 = local_model(state, h_0, c_0)
+            #pred_map, h_0_mapper, c_0_mapper = local_mapper(state, h_0_mapper, c_0_mapper)
+
+            #target_map = b_env.position_tracker.get_map()
+
+
+
             policy = F.softmax(logits, dim=1)
             log_policy = F.log_softmax(logits, dim=1)
             entropy = -(policy * log_policy).sum(1, keepdim=True)
@@ -113,10 +130,10 @@ def local_train(index, opt, global_model, optimizer, save=False):
             reward = reward[0]
 
             # reward based on visiting squares
-            total_unvisited = np.sum(b_env.position_tracker.visited)
-            reward -= total_unvisited/10000
+            #total_unvisited = np.sum(b_env.position_tracker.visited)
+            #reward -= total_unvisited/10000
             reward -= b_env.position_tracker.distance_to_goal()/500
-            reward -= b_env.position_tracker.angle_to_goal()/1000
+            #reward -= b_env.position_tracker.angle_to_goal()/1000
             #print("{} reward = {}".format(index, reward))
 
             arenas_done       = action_info[brain_name].local_done
@@ -183,7 +200,8 @@ def local_train(index, opt, global_model, optimizer, save=False):
             critic_loss = critic_loss + (R - value) ** 2 / 2
             entropy_loss = entropy_loss + entropy
 
-        total_loss = -actor_loss + critic_loss - opt.beta * entropy_loss
+        value_weight = 1
+        total_loss = -actor_loss + value_weight * critic_loss - opt.beta * entropy_loss
         #print("Loss = {}".format(total_loss))
         writer.add_scalar("Train_{}/Loss".format(index), total_loss, curr_episode)
         optimizer.zero_grad()
