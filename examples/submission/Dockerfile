@@ -39,8 +39,11 @@ ENV https_proxy ""
 # you can add the following (remove if not needed):
 RUN pip install animalai-train
 
+# Include here commands to install all the extra requirements not in
+# animalai-train (e.g. pytorch)
+RUN pip install -r requirements.txt
+
 
 ########################################################################################################################
 
 CMD ["/bin/bash"]
-
