@@ -1,9 +1,5 @@
-import argparse
 
 import torch
-#import sys
-#sys.path.insert(1,'/aaio/data/a3c_src')
-#from model import ActorCritic
 
 from a3c_src.model import ActorCritic
 import torch.nn.functional as F
@@ -24,11 +20,11 @@ class Agent(object):
         self.num_states = 3
         self.num_actions = 5
         self.actions_array = np.array([[0,0],[0,1],[0,2],[1,0],[2,0]])
-        self.brain_name = 'Learner'
+        self.brain_name = 'brain_info'
 
+        # Load the saved model using an absolute bath starting at /aaio,
+        # which is the root of the image's work directory
         self.saved_filepath = '/aaio/data/trained_models/a3c_base_99500'
-        #self.saved_filepath = 'data/trained_models/a3c_base_99500'
-
 
         self.model = ActorCritic(self.num_states, self.num_actions)
         self.model.load_state_dict(torch.load(self.saved_filepath))
@@ -68,15 +64,14 @@ class Agent(object):
         self.h_0 = self.h_0.to(self.device)
         self.c_0 = self.c_0.to(self.device)
 
-        #action_info = info[self.brain_name]
-        action_info = info['brain_info']
+        action_info = info[self.brain_name]
+
         state = action_info.visual_observations[0]
         state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(self.device)
         state = state.to(self.device)
 
         logits, value, self.h_0, self.c_0 = self.model(state, self.h_0, self.c_0)
         policy = F.softmax(logits, dim=1)
-        #print(policy)
         action_idx = torch.argmax(policy).item()
         action_idx = int(action_idx)
         action = self.actions_array[action_idx]
