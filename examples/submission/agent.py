@@ -1,7 +1,11 @@
 import argparse
+
 import torch
-#from aaio.data.a3c_src.model import ActorCritic
-from data.a3c_src.model import ActorCritic
+#import sys
+#sys.path.insert(1,'/aaio/data/a3c_src')
+#from model import ActorCritic
+
+from a3c_src.model import ActorCritic
 import torch.nn.functional as F
 import numpy as np
 from animalai.envs import UnityEnvironment
@@ -22,15 +26,17 @@ class Agent(object):
         self.actions_array = np.array([[0,0],[0,1],[0,2],[1,0],[2,0]])
         self.brain_name = 'Learner'
 
-        #self.saved_filepath = '/aaio/data/trained_models/a3c_base'
-        self.saved_filepath = '/data/trained_models/a3c_base'
-        
-
-        self.model = ActorCritic(num_states, num_actions)
+        self.saved_filepath = '/aaio/data/trained_models/a3c_base_99500'
+        #self.saved_filepath = 'data/trained_models/a3c_base_99500'
 
 
+        self.model = ActorCritic(self.num_states, self.num_actions)
+        self.model.load_state_dict(torch.load(self.saved_filepath))
+        self.model = self.model.to(self.device)
+        self.model.eval()
+        self.h_0 = torch.zeros((1, 512), dtype=torch.float)
+        self.c_0 = torch.zeros((1, 512), dtype=torch.float)
 
-        pass
 
     def reset(self, t=250):
         """
@@ -38,6 +44,8 @@ class Agent(object):
         Leave blank if nothing needs to happen there
         :param t the number of timesteps in the episode
         """
+        self.h_0 = torch.zeros((1, 512), dtype=torch.float)
+        self.c_0 = torch.zeros((1, 512), dtype=torch.float)
 
     def step(self, obs, reward, done, info):
         """
@@ -54,6 +62,24 @@ class Agent(object):
         :param info: contains auxiliary diagnostic information, including BrainInfo.
         :return: the action to take, a list or size 2
         """
-        action = [0, 0]
+        self.h_0 = self.h_0.detach()
+        self.c_0 = self.c_0.detach()
+
+        self.h_0 = self.h_0.to(self.device)
+        self.c_0 = self.c_0.to(self.device)
+
+        #action_info = info[self.brain_name]
+        action_info = info['brain_info']
+        state = action_info.visual_observations[0]
+        state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(self.device)
+        state = state.to(self.device)
+
+        logits, value, self.h_0, self.c_0 = self.model(state, self.h_0, self.c_0)
+        policy = F.softmax(logits, dim=1)
+        #print(policy)
+        action_idx = torch.argmax(policy).item()
+        action_idx = int(action_idx)
+        action = self.actions_array[action_idx]
+
 
         return action

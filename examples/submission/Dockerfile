@@ -41,8 +41,8 @@ RUN pip install animalai-train
 
 # Include here commands to install all the extra requirements not in
 # animalai-train (e.g. pytorch)
-RUN pip install -r requirements.txt
-
+RUN pip install -r /aaio/data/requirements.txt
+ENV PYTHONPATH /aaio/data
 
 ########################################################################################################################
 
