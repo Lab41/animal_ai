@@ -27,6 +27,8 @@ def local_train(index, opt, global_model, optimizer, save=False):
         start_time = timeit.default_timer()
     writer = SummaryWriter(opt.log_path)
 
+    if opt.use_gpu:
+        device = torch.device("cuda")
 
     # Unity
     #env_path = '../env/AnimalAI'
