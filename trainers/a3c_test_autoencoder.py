@@ -7,11 +7,13 @@ import os
 os.environ['OMP_NUM_THREADS'] = '1'
 import argparse
 import torch
-from a3c_src.model import ActorCritic
+from a3c_src.model import ActorCriticAutoencoder
 import torch.nn.functional as F
 import numpy as np
 from animalai.envs import UnityEnvironment
 from animalai.envs.arena_config import ArenaConfig
+from conv_autoencoder import autoencoder
+
 
 from env_utils import *
 
@@ -37,6 +39,13 @@ def test(opt):
     brain_name = 'Learner'
     # AnimalAI
 
+    autoenc_model = autoencoder()
+    autoenc_model.load_state_dict(torch.load('conv_autoencoder.pth'))
+
+    for param in autoenc_model.parameters():
+        param.requires_grad = False
+
+
     torch.manual_seed(123)
 
 
@@ -50,7 +59,7 @@ def test(opt):
 
 
 
-    model = ActorCritic(num_states, num_actions)
+    model = ActorCriticAutoencoder(num_states, num_actions)
 
     basepath = opt.saved_filepath.split('/')[0]
     basename = opt.saved_filepath.split('/')[1]
@@ -82,6 +91,12 @@ def test(opt):
     #ax1 = plt.subplot(111)
     #im1 = ax1.imshow(state[0])
     #plt.ion()
+
+
+    ax1 = plt.subplot(111)
+    im1 = ax1.imshow(np.zeros((40,40)), cmap='gray', vmin=-1, vmax=1)
+    plt.ion()
+
     state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(device)
     done = True
 
@@ -105,9 +120,8 @@ def test(opt):
         c_0 = c_0.to(device)
         state = state.to(device)
 
-        logits, value, h_0, c_0 = model(state, h_0, c_0)
+        logits, value, h_0, c_0, mapper  = model(autoenc_model.encoder(state), h_0, c_0)
         policy = F.softmax(logits, dim=1)
-        print(policy)
 
         action_idx = torch.argmax(policy).item()
         action_idx = int(action_idx)
@@ -117,10 +131,16 @@ def test(opt):
         state = action_info[brain_name].visual_observations[0]
         #im1.set_data(state[0])
         #plt.pause(0.01)
+
+        print(mapper.detach().cpu().numpy())
+        print(b_env.position_tracker.good_goal_start[0][[0,2]])
+        im1.set_data(mapper.detach().cpu().numpy())
+        plt.pause(0.01)
         state = torch.from_numpy(np.moveaxis(state, -1, 1)).float().to(device)
 
         velocity_obs = action_info[brain_name].vector_observations
         b_env.position_tracker.position_step(velocity_obs, action)
+
 
         #print("{}__{}".format(b_env.position_tracker.current_rotation,b_env.position_tracker.angle_to_goal()))
         #print("Current position = {}".format(b_env.position_tracker.current_position))

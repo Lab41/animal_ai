@@ -79,6 +79,10 @@ class position_tracker():
 
         return distance
 
+    def agent_goal_vec(self):
+        """Returns the vector from agent to goal."""
+        return self.current_position - self.good_goal_start
+
     def angle_to_goal(self):
         """Returns the angle in degrees between the agent and the good goal."""
         agent_to_goal_vec = self.good_goal_start - self.current_position
@@ -102,10 +106,20 @@ class position_tracker():
 
 
         goal_coord = np.floor(self.good_goal_start[0]).astype(int)[[0,2]]
-        agent_coord = np.floor(self.current_position[0]).astype(int)[[0,2]]
+        #agent_coord = np.floor(self.current_position[0]).astype(int)[[0,2]]
+        x,y = goal_coord[1],goal_coord[0]
+        maap[x][y] = 1
 
-        maap[goal_coord[1]][goal_coord[0]] = 1
-        maap[agent_coord[1]][agent_coord[0]] = 1
+        maap[max(0,x-1)][max(0,y-1)] = 1
+        maap[max(0,x-1)][y] = 1
+        maap[max(0,x-1)][min(39, y+1)] = 1
+        maap[x][max(0,y-1)] = 1
+        maap[x][min(39,y+1)] = 1
+        maap[min(39, x+1)][max(0,y-1)] = 1
+        maap[min(39, x+1)][y] = 1
+        maap[min(39, x+1)][min(39, y+1)] = 1
+
+        #maap[agent_coord[1]][agent_coord[0]] = 1
 
         return maap
 
@@ -198,10 +212,10 @@ class better_env():
                         positions.append(Vector3(x=x, y=y, z=z))
 
                     elif item_type == 'Agent':
-                        x = np.random.randint(1,39)
+                        x = np.random.randint(1,10)
                         #y = np.random.randint(1,39)
                         y = 1
-                        z = np.random.randint(1,39)
+                        z = np.random.randint(1,19)
                         #x = 0.5
                         #y = 0.5
                         #z = 0.5
